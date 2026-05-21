@@ -1,0 +1,462 @@
+openapi: 3.0.3
+info:
+  title: Paisa Smart Expense Tracker API
+  version: 1.0.0
+  description: |
+    OpenAPI documentation for Paisa Smart Expense Tracker.
+    This spec can be used by frontend developers for mock response testing.
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local Development Server
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+              example:
+                success: true
+                message: User registered successfully
+                token: jwt-token-example
+                user:
+                  id: 1
+                  name: Ayush Saxena
+                  email: ayush@example.com
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+              example:
+                success: true
+                message: Login successful
+                token: jwt-token-example
+                user:
+                  id: 1
+                  name: Ayush Saxena
+                  email: ayush@example.com
+
+  /users/profile:
+    get:
+      tags:
+        - Users
+      summary: Get logged-in user profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+              example:
+                id: 1
+                name: Ayush Saxena
+                email: ayush@example.com
+                monthlyBudget: 20000
+                currency: INR
+
+  /expenses:
+    get:
+      tags:
+        - Expenses
+      summary: Get all expenses
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: category
+          schema:
+            type: string
+          example: Food
+        - in: query
+          name: month
+          schema:
+            type: integer
+          example: 5
+      responses:
+        '200':
+          description: Expenses fetched successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Expense'
+              example:
+                - id: 101
+                  title: Pizza Hut
+                  amount: 499
+                  category: Food
+                  paymentMethod: UPI
+                  date: 2026-05-20
+                  notes: Dinner with friends
+                - id: 102
+                  title: Uber Ride
+                  amount: 220
+                  category: Transport
+                  paymentMethod: Card
+                  date: 2026-05-21
+                  notes: College commute
+
+    post:
+      tags:
+        - Expenses
+      summary: Create a new expense
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExpenseRequest'
+      responses:
+        '201':
+          description: Expense created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expense'
+              example:
+                id: 103
+                title: Grocery Shopping
+                amount: 1500
+                category: Groceries
+                paymentMethod: Cash
+                date: 2026-05-21
+                notes: Monthly groceries
+
+  /expenses/{expenseId}:
+    get:
+      tags:
+        - Expenses
+      summary: Get expense by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: expenseId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Expense fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expense'
+              example:
+                id: 101
+                title: Pizza Hut
+                amount: 499
+                category: Food
+                paymentMethod: UPI
+                date: 2026-05-20
+                notes: Dinner with friends
+
+    put:
+      tags:
+        - Expenses
+      summary: Update expense
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: expenseId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExpenseRequest'
+      responses:
+        '200':
+          description: Expense updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Expense'
+
+    delete:
+      tags:
+        - Expenses
+      summary: Delete expense
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: expenseId
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Expense deleted successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Expense deleted successfully
+
+  /categories:
+    get:
+      tags:
+        - Categories
+      summary: Get all categories
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Categories fetched successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+              example:
+                - Food
+                - Transport
+                - Entertainment
+                - Shopping
+                - Groceries
+                - Bills
+
+  /dashboard/summary:
+    get:
+      tags:
+        - Dashboard
+      summary: Get dashboard summary
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dashboard data fetched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardSummary'
+              example:
+                totalSpent: 12500
+                monthlyBudget: 20000
+                remainingBudget: 7500
+                topCategory: Food
+                expenseCount: 32
+                recentTransactions:
+                  - id: 101
+                    title: Pizza Hut
+                    amount: 499
+                    category: Food
+                    paymentMethod: UPI
+                    date: 2026-05-20
+                    notes: Dinner with friends
+
+  /analytics/monthly:
+    get:
+      tags:
+        - Analytics
+      summary: Get monthly analytics
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: year
+          schema:
+            type: integer
+          example: 2026
+      responses:
+        '200':
+          description: Monthly analytics fetched successfully
+          content:
+            application/json:
+              example:
+                monthlySpending:
+                  - month: January
+                    amount: 12000
+                  - month: February
+                    amount: 14500
+                  - month: March
+                    amount: 9800
+
+  /budgets:
+    post:
+      tags:
+        - Budget
+      summary: Set monthly budget
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BudgetRequest'
+      responses:
+        '200':
+          description: Budget updated successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Monthly budget updated successfully
+                monthlyBudget: 25000
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        monthlyBudget:
+          type: number
+        currency:
+          type: string
+
+    RegisterRequest:
+      type: object
+      required:
+        - name
+        - email
+        - password
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+
+    Expense:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        amount:
+          type: number
+        category:
+          type: string
+        paymentMethod:
+          type: string
+        date:
+          type: string
+          format: date
+        notes:
+          type: string
+
+    CreateExpenseRequest:
+      type: object
+      required:
+        - title
+        - amount
+        - category
+        - paymentMethod
+      properties:
+        title:
+          type: string
+        amount:
+          type: number
+        category:
+          type: string
+        paymentMethod:
+          type: string
+        date:
+          type: string
+          format: date
+        notes:
+          type: string
+
+    DashboardSummary:
+      type: object
+      properties:
+        totalSpent:
+          type: number
+        monthlyBudget:
+          type: number
+        remainingBudget:
+          type: number
+        topCategory:
+          type: string
+        expenseCount:
+          type: integer
+        recentTransactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Expense'
+
+    BudgetRequest:
+      type: object
+      properties:
+        monthlyBudget:
+          type: number
+
