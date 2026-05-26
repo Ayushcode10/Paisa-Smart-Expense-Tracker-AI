@@ -8,11 +8,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-
 @Slf4j
 @Service
 public class SmsService {
-    @Value("${app.twilio.account-sid)")
+
+    @Value("${app.twilio.account-sid}")
     private String accountSid;
 
     @Value("${app.twilio.auth-token}")
@@ -25,26 +25,28 @@ public class SmsService {
     private boolean enabled;
 
     @PostConstruct
-    public void init(){
-        if(enabled) {
+    public void init() {
+        if (enabled) {
             Twilio.init(accountSid, authToken);
-            log.info("Twilio sms service initialised");
-        }else{
+            log.info("Twilio SMS service initialized");
+        } else {
             log.warn("SMS sending DISABLED — OTPs will log to console only");
         }
     }
 
-    public void sendOtp(String toPhone, String otp){
+    public void sendOtp(String toPhone, String otp) {
         String messageBody = String.format(
                 "Your ExpenseTracker OTP is: %s. Valid for 5 minutes. Do not share with anyone.", otp
         );
-        if(!enabled){
-            //dev mode --- just log it
-            log.info("==================================");
-            log.info("   [DEV] OTP for {}: {}", toPhone, otp);
-            log.info("==================================");
+
+        if (!enabled) {
+            // Dev mode — just log it
+            log.info("========================================");
+            log.info("  [DEV] OTP for {}: {}", toPhone, otp);
+            log.info("========================================");
             return;
         }
+
         try {
             Message.creator(
                     new PhoneNumber(toPhone),
@@ -52,9 +54,9 @@ public class SmsService {
                     messageBody
             ).create();
             log.info("OTP sent successfully to {}", toPhone);
-        }catch (Exception e){
-            log.error("Failed to send OTP to {}: {}" , toPhone, e.getMessage());
-            throw new RuntimeException("Failed to send OTP, please try again");
+        } catch (Exception e) {
+            log.error("Failed to send OTP to {}: {}", toPhone, e.getMessage());
+            throw new RuntimeException("Failed to send OTP. Please try again.");
         }
     }
 }
