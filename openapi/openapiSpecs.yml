@@ -1,0 +1,1760 @@
+openapi: 3.0.3
+
+info:
+  title: ExpenseTracker API
+  description: |
+    Backend API for the ExpenseTracker Android application.
+    
+    ## Authentication
+    All endpoints except `/auth/*` require a Bearer JWT token in the Authorization header.
+    ```
+    Authorization: Bearer <token>
+    ```
+    
+    ## How to get a token
+    1. Call `POST /api/auth/send-otp` with a phone number
+    2. Check the OTP (console in dev, SMS in prod)
+    3. Call `POST /api/auth/verify-otp` → returns a JWT token
+    4. Use that token in all subsequent requests
+    
+    ## Base URL
+    - Local dev: `http://localhost:8080`
+    - Production: `TBD`
+    
+  version: 1.0.0
+  contact:
+    name: Backend Team
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+
+# ─────────────────────────────────────────────
+# SECURITY SCHEME
+# ─────────────────────────────────────────────
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from /api/auth/verify-otp
+
+  # ─────────────────────────────────────────────
+  # REUSABLE SCHEMAS
+  # ─────────────────────────────────────────────
+  schemas:
+
+    # ── COMMON ──────────────────────────────────
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "OTP has expired. Please request a new one."
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        errors:
+          type: object
+          additionalProperties:
+            type: string
+          example:
+            phone: "Enter a valid Indian mobile number with country code e.g. +919876543210"
+            amount: "Amount must be greater than 0"
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 0
+        size:
+          type: integer
+          example: 20
+        totalElements:
+          type: integer
+          example: 143
+        totalPages:
+          type: integer
+          example: 8
+        last:
+          type: boolean
+          example: false
+
+    # ── AUTH ────────────────────────────────────
+
+    SendOtpRequest:
+      type: object
+      required: [phone]
+      properties:
+        phone:
+          type: string
+          pattern: '^\+91[6-9]\d{9}$'
+          example: "+919876543210"
+          description: Indian mobile number with country code
+
+    VerifyOtpRequest:
+      type: object
+      required: [phone, otp]
+      properties:
+        phone:
+          type: string
+          example: "+919876543210"
+        otp:
+          type: string
+          minLength: 6
+          maxLength: 6
+          example: "482910"
+        name:
+          type: string
+          example: "Arjun Sharma"
+          description: Optional. Only needed for first-time users.
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          description: JWT token. Store this and send in every request header.
+        phone:
+          type: string
+          example: "+919876543210"
+        name:
+          type: string
+          example: "Arjun Sharma"
+        isNewUser:
+          type: boolean
+          example: true
+          description: True if this is a first-time login. Use to show onboarding.
+        message:
+          type: string
+          example: "Welcome to ExpenseTracker!"
+
+    # ── USER ────────────────────────────────────
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        phone:
+          type: string
+          example: "+919876543210"
+        name:
+          type: string
+          example: "Arjun Sharma"
+        currency:
+          type: string
+          example: "INR"
+        monthlyIncomeEstimate:
+          type: number
+          format: double
+          example: 75000.00
+          description: Used by AI to give better budget suggestions
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-01-01T10:30:00Z"
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Arjun Sharma"
+        monthlyIncomeEstimate:
+          type: number
+          format: double
+          example: 75000.00
+
+    # ── TRANSACTIONS ─────────────────────────────
+
+    TransactionType:
+      type: string
+      enum: [DEBIT, CREDIT]
+      description: DEBIT = money going out. CREDIT = money coming in.
+
+    TransactionSource:
+      type: string
+      enum: [UPI, CARD, CASH, WALLET, NET_BANKING, IMPS, NEFT, RTGS, ATM, EMI, UNKNOWN]
+
+    CreateTransactionRequest:
+      type: object
+      required: [amount, merchant, type]
+      properties:
+        amount:
+          type: number
+          format: double
+          minimum: 0.01
+          example: 349.00
+        merchant:
+          type: string
+          example: "Zomato"
+        type:
+          $ref: '#/components/schemas/TransactionType'
+        category:
+          type: string
+          example: "Food"
+          description: Optional. AI will auto-assign if not provided.
+        source:
+          $ref: '#/components/schemas/TransactionSource'
+        paymentMethod:
+          type: string
+          example: "GPay"
+          description: e.g. GPay, PhonePe, HDFC Credit Card
+        note:
+          type: string
+          example: "Lunch with team"
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["work", "reimbursable"]
+        transactionDate:
+          type: string
+          format: date-time
+          example: "2025-01-21T13:45:00Z"
+          description: Optional. Defaults to now if not provided.
+
+    UpdateTransactionRequest:
+      type: object
+      description: All fields optional. Only send fields you want to change.
+      properties:
+        amount:
+          type: number
+          format: double
+          example: 349.00
+        merchant:
+          type: string
+          example: "Zomato"
+        category:
+          type: string
+          example: "Dining Out"
+        type:
+          $ref: '#/components/schemas/TransactionType'
+        source:
+          $ref: '#/components/schemas/TransactionSource'
+        note:
+          type: string
+          example: "Team lunch - reimbursable"
+        tags:
+          type: array
+          items:
+            type: string
+
+    TransactionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "64f3a2b1c9e77a0012345678"
+          description: MongoDB ObjectId
+        amount:
+          type: number
+          format: double
+          example: 349.00
+        merchant:
+          type: string
+          example: "Zomato"
+        category:
+          type: string
+          example: "Food"
+        categoryConfidence:
+          type: number
+          format: double
+          example: 0.95
+          description: 0.0 to 1.0. How confident AI was. Show a warning icon if below 0.6.
+        type:
+          $ref: '#/components/schemas/TransactionType'
+        source:
+          $ref: '#/components/schemas/TransactionSource'
+        paymentMethod:
+          type: string
+          example: "GPay"
+        note:
+          type: string
+          example: "Lunch with team"
+        tags:
+          type: array
+          items:
+            type: string
+        bankName:
+          type: string
+          example: "HDFC"
+        accountLast4:
+          type: string
+          example: "XX4521"
+        smsImported:
+          type: boolean
+          example: true
+          description: True if this transaction came from SMS parsing, false if manually entered.
+        transactionDate:
+          type: string
+          format: date-time
+          example: "2025-01-21T13:45:00Z"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2025-01-21T13:46:02Z"
+
+    TransactionListResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionResponse'
+        pagination:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    TransactionSummaryResponse:
+      type: object
+      properties:
+        totalDebit:
+          type: number
+          format: double
+          example: 18500.00
+          description: Total money spent in the period
+        totalCredit:
+          type: number
+          format: double
+          example: 75000.00
+          description: Total money received in the period
+        netBalance:
+          type: number
+          format: double
+          example: 56500.00
+          description: totalCredit - totalDebit
+        transactionCount:
+          type: integer
+          example: 47
+        spendByCategory:
+          type: object
+          additionalProperties:
+            type: number
+          example:
+            Food: 4200.00
+            Travel: 2800.00
+            Shopping: 5500.00
+            Bills: 3200.00
+            Entertainment: 1800.00
+        spendBySource:
+          type: object
+          additionalProperties:
+            type: number
+          example:
+            UPI: 12000.00
+            CARD: 5500.00
+            CASH: 1000.00
+
+    # ── SMS ─────────────────────────────────────
+
+    ParsedSmsResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        failureReason:
+          type: string
+          example: "No matching bank pattern found"
+          description: Only present when success is false
+        amount:
+          type: number
+          format: double
+          example: 1299.00
+        type:
+          $ref: '#/components/schemas/TransactionType'
+        merchant:
+          type: string
+          example: "Zomato"
+        accountLast4:
+          type: string
+          example: "XX4521"
+        source:
+          $ref: '#/components/schemas/TransactionSource'
+        bankName:
+          type: string
+          example: "HDFC"
+        availableBalance:
+          type: number
+          format: double
+          example: 12450.00
+          description: Remaining balance as read from SMS
+
+    BulkSmsResult:
+      type: object
+      properties:
+        totalReceived:
+          type: integer
+          example: 120
+        successCount:
+          type: integer
+          example: 113
+        failureCount:
+          type: integer
+          example: 7
+        failedSmsPreview:
+          type: array
+          items:
+            type: string
+          description: First 50 chars of SMS messages that failed to parse. For debugging.
+
+    # ── CATEGORIES ───────────────────────────────
+
+    Category:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Food"
+        icon:
+          type: string
+          example: "🍔"
+        color:
+          type: string
+          example: "#FF6B35"
+          description: Hex color for UI display
+        isDefault:
+          type: boolean
+          example: true
+          description: True = system category. False = user created.
+
+    CreateCategoryRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: "Medical"
+        icon:
+          type: string
+          example: "💊"
+        color:
+          type: string
+          example: "#4CAF50"
+
+    AiCategorizeResponse:
+      type: object
+      properties:
+        transactionId:
+          type: string
+          example: "64f3a2b1c9e77a0012345678"
+        previousCategory:
+          type: string
+          example: "Uncategorized"
+        newCategory:
+          type: string
+          example: "Food"
+        confidence:
+          type: number
+          format: double
+          example: 0.95
+        reasoning:
+          type: string
+          example: "Merchant 'Zomato' is a food delivery platform"
+
+    # ── BUDGETS ──────────────────────────────────
+
+    BudgetPeriod:
+      type: string
+      enum: [MONTHLY, WEEKLY]
+      description: MONTHLY resets on 1st of each month. WEEKLY resets on Monday.
+
+    CreateBudgetRequest:
+      type: object
+      required: [category, limitAmount, period]
+      properties:
+        category:
+          type: string
+          example: "Food"
+        limitAmount:
+          type: number
+          format: double
+          example: 5000.00
+          description: Maximum spend allowed in this period
+        period:
+          $ref: '#/components/schemas/BudgetPeriod'
+        rollover:
+          type: boolean
+          default: false
+          description: If true, unused budget carries forward to next period
+        alertAt:
+          type: integer
+          example: 80
+          description: Send alert when this % of budget is consumed. Default 80.
+
+    BudgetResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        category:
+          type: string
+          example: "Food"
+        limitAmount:
+          type: number
+          format: double
+          example: 5000.00
+        spentAmount:
+          type: number
+          format: double
+          example: 3200.00
+          description: How much has been spent this period. Calculated in real time.
+        remainingAmount:
+          type: number
+          format: double
+          example: 1800.00
+        percentUsed:
+          type: number
+          format: double
+          example: 64.0
+          description: 0 to 100. Use this to render the progress bar.
+        status:
+          type: string
+          enum: [ON_TRACK, WARNING, EXCEEDED]
+          example: "ON_TRACK"
+          description: ON_TRACK = under 80%. WARNING = 80-100%. EXCEEDED = over 100%.
+        period:
+          $ref: '#/components/schemas/BudgetPeriod'
+        rollover:
+          type: boolean
+          example: false
+        alertAt:
+          type: integer
+          example: 80
+        periodStart:
+          type: string
+          format: date
+          example: "2025-01-01"
+        periodEnd:
+          type: string
+          format: date
+          example: "2025-01-31"
+
+    UpdateBudgetRequest:
+      type: object
+      description: All fields optional.
+      properties:
+        limitAmount:
+          type: number
+          format: double
+          example: 6000.00
+        alertAt:
+          type: integer
+          example: 75
+        rollover:
+          type: boolean
+          example: true
+
+    # ── GOALS ────────────────────────────────────
+
+    CreateGoalRequest:
+      type: object
+      required: [name, targetAmount, targetDate]
+      properties:
+        name:
+          type: string
+          example: "Goa Trip"
+        targetAmount:
+          type: number
+          format: double
+          example: 50000.00
+        targetDate:
+          type: string
+          format: date
+          example: "2025-12-01"
+        currentAmount:
+          type: number
+          format: double
+          example: 5000.00
+          description: Optional. If user already has some savings toward this goal.
+        icon:
+          type: string
+          example: "✈️"
+        monthlyContribution:
+          type: number
+          format: double
+          example: 5000.00
+          description: Optional. Target monthly saving toward this goal.
+
+    GoalResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Goa Trip"
+        targetAmount:
+          type: number
+          format: double
+          example: 50000.00
+        currentAmount:
+          type: number
+          format: double
+          example: 15000.00
+        remainingAmount:
+          type: number
+          format: double
+          example: 35000.00
+        percentComplete:
+          type: number
+          format: double
+          example: 30.0
+          description: 0 to 100. Use this to render the progress bar.
+        targetDate:
+          type: string
+          format: date
+          example: "2025-12-01"
+        monthsRemaining:
+          type: integer
+          example: 8
+        requiredMonthlySaving:
+          type: number
+          format: double
+          example: 4375.00
+          description: How much must be saved per month to hit goal on time. Calculated.
+        onTrack:
+          type: boolean
+          example: true
+          description: Is the current savings pace enough to hit the goal?
+        icon:
+          type: string
+          example: "✈️"
+        status:
+          type: string
+          enum: [ACTIVE, COMPLETED, ABANDONED]
+          example: "ACTIVE"
+        createdAt:
+          type: string
+          format: date-time
+
+    ContributeToGoalRequest:
+      type: object
+      required: [amount]
+      properties:
+        amount:
+          type: number
+          format: double
+          example: 5000.00
+        note:
+          type: string
+          example: "Saved from bonus"
+
+    # ── ANALYTICS ────────────────────────────────
+
+    MonthlyTrendPoint:
+      type: object
+      properties:
+        month:
+          type: string
+          example: "Jan 2025"
+        totalDebit:
+          type: number
+          format: double
+          example: 18500.00
+        totalCredit:
+          type: number
+          format: double
+          example: 75000.00
+        transactionCount:
+          type: integer
+          example: 47
+
+    CategoryTrendPoint:
+      type: object
+      properties:
+        month:
+          type: string
+          example: "Jan 2025"
+        category:
+          type: string
+          example: "Food"
+        amount:
+          type: number
+          format: double
+          example: 4200.00
+
+    TopMerchant:
+      type: object
+      properties:
+        merchant:
+          type: string
+          example: "Zomato"
+        totalSpent:
+          type: number
+          format: double
+          example: 3200.00
+        transactionCount:
+          type: integer
+          example: 14
+        category:
+          type: string
+          example: "Food"
+
+    DailySpendPoint:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+          example: "2025-01-21"
+        amount:
+          type: number
+          format: double
+          example: 850.00
+        transactionCount:
+          type: integer
+          example: 3
+
+    AiInsightResponse:
+      type: object
+      properties:
+        summary:
+          type: string
+          example: "You spent ₹18,500 this month, which is 12% less than last month. Your biggest category was Shopping at ₹5,500."
+        highlights:
+          type: array
+          items:
+            type: string
+          example:
+            - "Food spending up 23% vs last month"
+            - "You ordered Swiggy 8 times this week"
+            - "EMI of ₹5,000 due on the 5th"
+        suggestions:
+          type: array
+          items:
+            type: string
+          example:
+            - "Cutting 3 Swiggy orders/week could save ₹1,200 monthly"
+            - "You are on track for your Goa Trip goal"
+        anomalies:
+          type: array
+          items:
+            type: string
+          example:
+            - "Unusually large transaction of ₹8,000 at Amazon on Jan 19"
+
+    AiQueryRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          example: "How much did I spend on food last month?"
+
+    AiQueryResponse:
+      type: object
+      properties:
+        query:
+          type: string
+          example: "How much did I spend on food last month?"
+        answer:
+          type: string
+          example: "You spent ₹4,200 on food in January across 18 transactions. Your most frequent merchant was Zomato (8 orders, ₹2,800)."
+        relatedTransactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/TransactionResponse'
+          description: Transactions relevant to the query. Show as a list below the answer.
+
+    # ── NOTIFICATIONS ─────────────────────────────
+
+    NotificationPreferences:
+      type: object
+      properties:
+        budgetAlert:
+          type: boolean
+          example: true
+          description: Alert when budget reaches threshold %
+        weeklyDigest:
+          type: boolean
+          example: true
+          description: Weekly spending summary every Sunday
+        monthlyReport:
+          type: boolean
+          example: true
+          description: Monthly report on 1st of each month
+        unusualSpend:
+          type: boolean
+          example: true
+          description: Alert when a transaction is unusually large
+        goalReminder:
+          type: boolean
+          example: true
+          description: Monthly reminder to contribute to goals
+        fcmToken:
+          type: string
+          example: "dJK8m2x..."
+          description: Firebase Cloud Messaging token from the Android device
+
+# ─────────────────────────────────────────────
+# GLOBAL SECURITY — applies to all routes
+# unless overridden (like /auth endpoints)
+# ─────────────────────────────────────────────
+security:
+  - BearerAuth: []
+
+# ─────────────────────────────────────────────
+# TAGS — just for grouping in Swagger UI
+# ─────────────────────────────────────────────
+tags:
+  - name: Auth
+    description: OTP login and JWT token management
+  - name: User
+    description: User profile management
+  - name: Transactions
+    description: Create, read, update, delete transactions
+  - name: SMS
+    description: Parse bank SMS and auto-create transactions
+  - name: Categories
+    description: Transaction categories (system + custom)
+  - name: Budgets
+    description: Monthly/weekly spend limits per category
+  - name: Goals
+    description: Savings goals with progress tracking
+  - name: Analytics
+    description: Trends, charts and spending insights
+  - name: AI
+    description: AI-powered categorization and natural language queries
+  - name: Notifications
+    description: Push notification preferences
+
+# ─────────────────────────────────────────────
+# PATHS
+# ─────────────────────────────────────────────
+paths:
+
+  # ════════════════════════════════════════════
+  # AUTH
+  # ════════════════════════════════════════════
+
+  /api/auth/send-otp:
+    post:
+      tags: [Auth]
+      summary: Send OTP to phone number
+      description: Sends a 6-digit OTP via SMS. In dev mode, OTP is printed to server console.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendOtpRequest'
+      responses:
+        '200':
+          description: OTP sent successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "OTP sent successfully to +919876543210"
+        '400':
+          description: Invalid phone number
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+
+  /api/auth/verify-otp:
+    post:
+      tags: [Auth]
+      summary: Verify OTP and get JWT token
+      description: |
+        Verifies the OTP. On success, returns a JWT token to use in all future requests.
+        - If phone is new → creates a user account, `isNewUser: true`
+        - If phone exists → logs in, `isNewUser: false`
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyOtpRequest'
+      responses:
+        '200':
+          description: Verified. JWT token returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid or expired OTP
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ════════════════════════════════════════════
+  # USER
+  # ════════════════════════════════════════════
+
+  /api/users/me:
+    get:
+      tags: [User]
+      summary: Get current user's profile
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Missing or invalid token
+
+    put:
+      tags: [User]
+      summary: Update current user's profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+    delete:
+      tags: [User]
+      summary: Delete account and all data
+      description: Permanently deletes the user and all their transactions, budgets, and goals.
+      responses:
+        '200':
+          description: Account deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Account and all data deleted successfully"
+
+  # ════════════════════════════════════════════
+  # TRANSACTIONS
+  # ════════════════════════════════════════════
+
+  /api/transactions:
+    post:
+      tags: [Transactions]
+      summary: Create a transaction manually
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTransactionRequest'
+      responses:
+        '200':
+          description: Transaction created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+
+    get:
+      tags: [Transactions]
+      summary: Get all transactions with optional filters
+      description: Returns paginated list of transactions. All filter params are optional.
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+          description: Page number (0-indexed)
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+          description: Items per page
+        - name: category
+          in: query
+          schema:
+            type: string
+          example: Food
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [DEBIT, CREDIT]
+        - name: source
+          in: query
+          schema:
+            type: string
+          example: UPI
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+          example: "2025-01-01T00:00:00"
+          description: Filter transactions on or after this date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+          example: "2025-01-31T23:59:59"
+          description: Filter transactions on or before this date
+        - name: search
+          in: query
+          schema:
+            type: string
+          example: "zomato"
+          description: Search by merchant name
+      responses:
+        '200':
+          description: Paginated transaction list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionListResponse'
+
+  /api/transactions/summary:
+    get:
+      tags: [Transactions]
+      summary: Get spending summary for a date range
+      description: Returns totals and breakdowns. Powers the home dashboard.
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          example: "2025-01-01T00:00:00"
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          example: "2025-01-31T23:59:59"
+      responses:
+        '200':
+          description: Summary data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionSummaryResponse'
+
+  /api/transactions/{id}:
+    get:
+      tags: [Transactions]
+      summary: Get a single transaction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "64f3a2b1c9e77a0012345678"
+      responses:
+        '200':
+          description: Transaction found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '404':
+          description: Not found
+
+    put:
+      tags: [Transactions]
+      summary: Update a transaction
+      description: Partial update. Only send the fields you want to change.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTransactionRequest'
+      responses:
+        '200':
+          description: Updated transaction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+        '404':
+          description: Not found
+
+    delete:
+      tags: [Transactions]
+      summary: Delete a transaction
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Transaction deleted"
+        '404':
+          description: Not found
+
+  # ════════════════════════════════════════════
+  # SMS
+  # ════════════════════════════════════════════
+
+  /api/sms/parse:
+    post:
+      tags: [SMS]
+      summary: Parse one SMS and save as transaction
+      description: |
+        Called in real time when Android receives a new bank SMS.
+        Parses the SMS, extracts transaction details, and saves it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sms]
+              properties:
+                sms:
+                  type: string
+                  example: "Rs.1,299.00 debited from A/c XX4521 on 21-Jan-25. Info: UPI/ZOMATO/Food. Avl Bal:Rs.12,450.00"
+      responses:
+        '200':
+          description: Parse result. Check `success` field first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParsedSmsResult'
+
+  /api/sms/parse/bulk:
+    post:
+      tags: [SMS]
+      summary: Bulk import SMS history
+      description: |
+        Called once on first app launch.
+        Android reads last 6 months of bank SMS and sends all at once.
+        Returns a summary of how many were parsed successfully.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [messages]
+              properties:
+                messages:
+                  type: array
+                  items:
+                    type: string
+                  example:
+                    - "Rs.349.00 debited from A/c XX4521 on 20-Jan-25. Info: UPI/SWIGGY. Avl Bal:Rs.13,749.00"
+                    - "Rs.5,000.00 credited to A/c XX4521 on 19-Jan-25. Info: IMPS/SALARY. Avl Bal:Rs.14,098.00"
+      responses:
+        '200':
+          description: Bulk import result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkSmsResult'
+
+  /api/sms/parse/preview:
+    post:
+      tags: [SMS]
+      summary: Preview parse without saving
+      description: |
+        Parses an SMS and returns what would be extracted,
+        WITHOUT saving it to the database.
+        Use this on a confirmation screen: "We found this transaction, is it correct?"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sms]
+              properties:
+                sms:
+                  type: string
+      responses:
+        '200':
+          description: Parsed result (not saved)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParsedSmsResult'
+
+  # ════════════════════════════════════════════
+  # CATEGORIES
+  # ════════════════════════════════════════════
+
+  /api/categories:
+    get:
+      tags: [Categories]
+      summary: Get all categories
+      description: Returns system default categories + any custom categories the user created.
+      responses:
+        '200':
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+              example:
+                - name: "Food"
+                  icon: "🍔"
+                  color: "#FF6B35"
+                  isDefault: true
+                - name: "Travel"
+                  icon: "✈️"
+                  color: "#2196F3"
+                  isDefault: true
+                - name: "Shopping"
+                  icon: "🛍️"
+                  color: "#9C27B0"
+                  isDefault: true
+
+    post:
+      tags: [Categories]
+      summary: Create a custom category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCategoryRequest'
+      responses:
+        '200':
+          description: Created category
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+
+  /api/categories/{name}:
+    delete:
+      tags: [Categories]
+      summary: Delete a custom category
+      description: Only user-created categories can be deleted. System defaults cannot be deleted.
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "Medical"
+      responses:
+        '200':
+          description: Deleted
+        '400':
+          description: Cannot delete a system default category
+
+  # ════════════════════════════════════════════
+  # AI — CATEGORIZATION
+  # ════════════════════════════════════════════
+
+  /api/ai/categorize/{transactionId}:
+    post:
+      tags: [AI]
+      summary: AI categorize a single transaction
+      description: |
+        Sends the transaction's merchant name to AI and gets a category suggestion.
+        Updates the transaction's category automatically.
+        Use when user marks a transaction as "wrong category" and wants AI to re-try.
+      parameters:
+        - name: transactionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Categorization result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiCategorizeResponse'
+
+  /api/ai/categorize/bulk:
+    post:
+      tags: [AI]
+      summary: AI categorize all uncategorized transactions
+      description: |
+        Finds all transactions with category "Uncategorized" for the current user
+        and runs AI categorization on them in batch.
+        Call this after bulk SMS import completes.
+      responses:
+        '200':
+          description: Batch result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  processed:
+                    type: integer
+                    example: 45
+                  categorized:
+                    type: integer
+                    example: 43
+                  failed:
+                    type: integer
+                    example: 2
+
+  /api/ai/query:
+    post:
+      tags: [AI]
+      summary: Natural language query about spending
+      description: |
+        Ask anything about your spending in plain English.
+        Examples:
+        - "How much did I spend on food last month?"
+        - "What was my biggest expense this week?"
+        - "Am I over budget on shopping?"
+        - "How much have I saved towards my Goa trip?"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AiQueryRequest'
+      responses:
+        '200':
+          description: AI answer with supporting transactions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiQueryResponse'
+
+  /api/ai/insights:
+    get:
+      tags: [AI]
+      summary: Get AI-generated monthly insights
+      description: |
+        Returns an AI-written summary of the current month's spending,
+        highlights, anomalies, and suggestions.
+        Cache this — expensive to generate. Regenerate once a day.
+      parameters:
+        - name: month
+          in: query
+          schema:
+            type: string
+          example: "2025-01"
+          description: Month in YYYY-MM format. Defaults to current month.
+      responses:
+        '200':
+          description: AI insights
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AiInsightResponse'
+
+  # ════════════════════════════════════════════
+  # BUDGETS
+  # ════════════════════════════════════════════
+
+  /api/budgets:
+    post:
+      tags: [Budgets]
+      summary: Create a budget for a category
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBudgetRequest'
+      responses:
+        '200':
+          description: Budget created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BudgetResponse'
+
+    get:
+      tags: [Budgets]
+      summary: Get all budgets with real-time spend status
+      description: |
+        Returns all budgets for the current user, with live `spentAmount`,
+        `remainingAmount`, `percentUsed`, and `status` calculated from actual transactions.
+      responses:
+        '200':
+          description: List of budgets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BudgetResponse'
+
+  /api/budgets/{id}:
+    get:
+      tags: [Budgets]
+      summary: Get a single budget
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Budget with current status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BudgetResponse'
+
+    put:
+      tags: [Budgets]
+      summary: Update a budget
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBudgetRequest'
+      responses:
+        '200':
+          description: Updated budget
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BudgetResponse'
+
+    delete:
+      tags: [Budgets]
+      summary: Delete a budget
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deleted
+
+  # ════════════════════════════════════════════
+  # GOALS
+  # ════════════════════════════════════════════
+
+  /api/goals:
+    post:
+      tags: [Goals]
+      summary: Create a savings goal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGoalRequest'
+      responses:
+        '200':
+          description: Goal created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalResponse'
+
+    get:
+      tags: [Goals]
+      summary: Get all goals
+      responses:
+        '200':
+          description: List of goals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GoalResponse'
+
+  /api/goals/{id}:
+    get:
+      tags: [Goals]
+      summary: Get a single goal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Goal details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalResponse'
+
+    put:
+      tags: [Goals]
+      summary: Update a goal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGoalRequest'
+      responses:
+        '200':
+          description: Updated goal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalResponse'
+
+    delete:
+      tags: [Goals]
+      summary: Delete a goal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Deleted
+
+  /api/goals/{id}/contribute:
+    post:
+      tags: [Goals]
+      summary: Add money toward a goal
+      description: Records a contribution. Updates currentAmount and recalculates progress.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContributeToGoalRequest'
+      responses:
+        '200':
+          description: Updated goal after contribution
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalResponse'
+
+  # ════════════════════════════════════════════
+  # ANALYTICS
+  # ════════════════════════════════════════════
+
+  /api/analytics/monthly-trend:
+    get:
+      tags: [Analytics]
+      summary: Month-by-month spending trend
+      description: Returns debit/credit totals for each month. Use for the line/bar chart.
+      parameters:
+        - name: months
+          in: query
+          schema:
+            type: integer
+            default: 6
+          description: Number of past months to include
+      responses:
+        '200':
+          description: Monthly trend data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MonthlyTrendPoint'
+
+  /api/analytics/category-trend:
+    get:
+      tags: [Analytics]
+      summary: Spending per category over time
+      description: Returns spend per category per month. Use for a stacked bar chart.
+      parameters:
+        - name: months
+          in: query
+          schema:
+            type: integer
+            default: 3
+        - name: category
+          in: query
+          schema:
+            type: string
+          description: Filter to a specific category (optional)
+      responses:
+        '200':
+          description: Category trend data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoryTrendPoint'
+
+  /api/analytics/top-merchants:
+    get:
+      tags: [Analytics]
+      summary: Top merchants by spend
+      description: Returns the merchants where the user has spent the most.
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Top merchants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TopMerchant'
+
+  /api/analytics/daily-spend:
+    get:
+      tags: [Analytics]
+      summary: Daily spend for a month
+      description: Returns spend per day. Use for a calendar heatmap or bar chart.
+      parameters:
+        - name: month
+          in: query
+          schema:
+            type: string
+          example: "2025-01"
+          description: Month in YYYY-MM format. Defaults to current month.
+      responses:
+        '200':
+          description: Daily spend data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DailySpendPoint'
+
+  # ════════════════════════════════════════════
+  # NOTIFICATIONS
+  # ════════════════════════════════════════════
+
+  /api/notifications/preferences:
+    get:
+      tags: [Notifications]
+      summary: Get notification preferences
+      responses:
+        '200':
+          description: Current preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferences'
+
+    put:
+      tags: [Notifications]
+      summary: Update notification preferences
+      description: Also use this to register the FCM device token on login.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationPreferences'
+      responses:
+        '200':
+          description: Updated preferences
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPreferences'
+
+  # ════════════════════════════════════════════
+  # HEALTH CHECK
+  # ════════════════════════════════════════════
+
+  /api/health:
+    get:
+      tags: [Auth]
+      summary: Health check
+      security: []
+      responses:
+        '200':
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "UP"
+                  service:
+                    type: string
+                    example: "Expense Tracker API"
+                  version:
+                    type: string
+                    example: "1.0.0"
