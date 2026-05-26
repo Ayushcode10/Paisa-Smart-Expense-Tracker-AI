@@ -8,7 +8,7 @@ public class AuthUtils {
     public static Long getCurrentUserId() {
         var auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth instanceof UsernamePasswordAuthenticationToken token) {
-            return (Long) token.getCredentials();  // userId stored as credentials
+            return (Long) token.getDetails();  // userId stored as credentials
         }
         throw new RuntimeException("No authenticated user found");
     }

@@ -43,8 +43,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
             // Store phone + userId in security context
             UsernamePasswordAuthenticationToken auth =
-                    new UsernamePasswordAuthenticationToken(phone, userId, List.of());
+                    new UsernamePasswordAuthenticationToken(
+                            phone,
+                            userId,
+                            List.of()
+                    );
 
+            auth.setDetails(userId);
             SecurityContextHolder.getContext().setAuthentication(auth);
             log.debug("Authenticated user: {} (id: {})", phone, userId);
         }
