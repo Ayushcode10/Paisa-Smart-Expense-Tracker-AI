@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, StatusBar, Dimensions, ActivityIndicator,
-  Modal, ScrollView, RefreshControl, Animated, Platform,
+  Modal, ScrollView, RefreshControl, Platform,
   KeyboardAvoidingView,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -28,67 +28,6 @@ const C = {
   petal: "#FBE4D8",
   green: "#4CAF7D",
   red:   "#E05C6B",
-};
-
-// ── Mock data (used until BASE_URL is set) ────────────────────
-const MOCK_TRANSACTIONS: TransactionResponse[] = [
-  {
-    id: "1", amount: 349, merchant: "Zomato", category: "Food",
-    categoryConfidence: 0.97, type: "DEBIT", source: "UPI",
-    paymentMethod: "GPay", note: "Lunch with team", tags: ["work"],
-    bankName: "HDFC", accountLast4: "XX4521", smsImported: true,
-    transactionDate: new Date(Date.now() - 2 * 3600000).toISOString(),
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "2", amount: 75000, merchant: "Salary - Infosys", category: "Income",
-    categoryConfidence: 0.99, type: "CREDIT", source: "NEFT",
-    paymentMethod: "NEFT", note: "", tags: [],
-    bankName: "HDFC", accountLast4: "XX4521", smsImported: true,
-    transactionDate: new Date(Date.now() - 86400000).toISOString(),
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "3", amount: 1299, merchant: "Netflix", category: "Entertainment",
-    categoryConfidence: 0.93, type: "DEBIT", source: "CARD",
-    paymentMethod: "HDFC Credit", note: "Monthly sub", tags: ["subscription"],
-    bankName: "HDFC", accountLast4: "XX4521", smsImported: false,
-    transactionDate: new Date(Date.now() - 2 * 86400000).toISOString(),
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "4", amount: 450, merchant: "Swiggy", category: "Food",
-    categoryConfidence: 0.95, type: "DEBIT", source: "UPI",
-    paymentMethod: "PhonePe", note: "Dinner", tags: [],
-    bankName: "ICICI", accountLast4: "XX9812", smsImported: true,
-    transactionDate: new Date(Date.now() - 3 * 86400000).toISOString(),
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "5", amount: 3200, merchant: "BESCOM", category: "Bills",
-    categoryConfidence: 0.88, type: "DEBIT", source: "NET_BANKING",
-    paymentMethod: "SBI Net", note: "Electricity bill", tags: ["bills"],
-    bankName: "SBI", accountLast4: "XX1234", smsImported: false,
-    transactionDate: new Date(Date.now() - 5 * 86400000).toISOString(),
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: "6", amount: 800, merchant: "DMart", category: "Groceries",
-    categoryConfidence: 0.91, type: "DEBIT", source: "CASH",
-    paymentMethod: "Cash", note: "Weekly groceries", tags: [],
-    bankName: "", accountLast4: "", smsImported: false,
-    transactionDate: new Date(Date.now() - 6 * 86400000).toISOString(),
-    createdAt: new Date().toISOString(),
-  },
-];
-
-const MOCK_SUMMARY: TransactionSummaryResponse = {
-  totalDebit: 6098,
-  totalCredit: 75000,
-  netBalance: 68902,
-  transactionCount: 6,
-  spendByCategory: { Food: 799, Entertainment: 1299, Bills: 3200, Groceries: 800 },
-  spendBySource: { UPI: 799, CARD: 1299, NET_BANKING: 3200, CASH: 800 },
 };
 
 // ── Source icon map ───────────────────────────────────────────
@@ -142,14 +81,14 @@ function AddTransactionModal({
   onClose: () => void;
   onAdded: () => void;
 }) {
-  const [amount, setAmount]   = useState("");
+  const [amount, setAmount]     = useState("");
   const [merchant, setMerchant] = useState("");
-  const [type, setType]       = useState<TransactionType>("DEBIT");
+  const [type, setType]         = useState<TransactionType>("DEBIT");
   const [category, setCategory] = useState("");
-  const [source, setSource]   = useState<TransactionSource>("UPI");
-  const [note, setNote]       = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState("");
+  const [source, setSource]     = useState<TransactionSource>("UPI");
+  const [note, setNote]         = useState("");
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState("");
 
   const reset = () => {
     setAmount(""); setMerchant(""); setType("DEBIT");
@@ -196,7 +135,6 @@ function AddTransactionModal({
               colors={[C.deep, C.mid]}
               style={StyleSheet.absoluteFill}
             />
-            {/* Handle */}
             <View style={modal.handle} />
 
             <View style={modal.header}>
@@ -240,7 +178,7 @@ function AddTransactionModal({
               {/* Merchant */}
               <Text style={modal.label}>Merchant / Description</Text>
               <TextInput
-                style={[modal.inputBox]}
+                style={modal.inputBox}
                 value={merchant}
                 onChangeText={t => { setError(""); setMerchant(t); }}
                 placeholder="e.g. Zomato, Amazon"
@@ -317,18 +255,15 @@ function AddTransactionModal({
 
 // ── Transaction Card ──────────────────────────────────────────
 function TxnCard({ item }: { item: TransactionResponse }) {
-  const isDebit   = item.type === "DEBIT";
-  const icon      = CATEGORY_ICONS[item.category] ?? "•";
-  const lowConf   = item.categoryConfidence < 0.6;
+  const isDebit = item.type === "DEBIT";
+  const icon    = CATEGORY_ICONS[item.category] ?? "•";
+  const lowConf = item.categoryConfidence < 0.6;
 
   return (
     <View style={card.root}>
-      {/* Icon bubble */}
       <View style={card.iconBubble}>
         <Text style={card.iconText}>{icon}</Text>
       </View>
-
-      {/* Middle */}
       <View style={card.mid}>
         <View style={card.topRow}>
           <Text style={card.merchant} numberOfLines={1}>{item.merchant}</Text>
@@ -389,14 +324,14 @@ export default function Transactions() {
   const [loadingMore, setLoadingMore]   = useState(false);
   const [page, setPage]                 = useState(0);
   const [hasMore, setHasMore]           = useState(true);
+  const [error, setError]               = useState<string | null>(null);
 
-  const [search, setSearch]             = useState("");
-  const [typeFilter, setTypeFilter]     = useState<TransactionType | "ALL">("ALL");
-  const [showAdd, setShowAdd]           = useState(false);
+  const [search, setSearch]         = useState("");
+  const [typeFilter, setTypeFilter] = useState<TransactionType | "ALL">("ALL");
+  const [showAdd, setShowAdd]       = useState(false);
 
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Month range for summary (current month)
   const monthFrom = () => {
     const d = new Date(); d.setDate(1); d.setHours(0, 0, 0, 0);
     return d.toISOString();
@@ -415,6 +350,7 @@ export default function Transactions() {
   });
 
   const fetchData = useCallback(async (reset = false) => {
+    setError(null);
     try {
       const pg = reset ? 0 : page;
       const [listRes, sumRes] = await Promise.all([
@@ -425,11 +361,8 @@ export default function Transactions() {
       if (reset && sumRes) setSummary(sumRes as TransactionSummaryResponse);
       setHasMore(!listRes.pagination.last);
       setPage(pg + 1);
-    } catch {
-      // API not ready yet → use mock data
-      setTransactions(MOCK_TRANSACTIONS);
-      setSummary(MOCK_SUMMARY);
-      setHasMore(false);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to load transactions");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -461,6 +394,65 @@ export default function Transactions() {
 
   const onEndReached = () => {
     if (hasMore && !loadingMore) { setLoadingMore(true); fetchData(); }
+  };
+
+  // ── Render content area based on state ───────────────────
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <View style={styles.center}>
+          <ActivityIndicator color={C.blush} size="large" />
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={styles.center}>
+          <Text style={styles.emptyIcon}>⚠️</Text>
+          <Text style={styles.emptyText}>Could not load transactions</Text>
+          <Text style={styles.emptySub}>{error}</Text>
+          <TouchableOpacity
+            onPress={() => { setLoading(true); fetchData(true); }}
+            style={styles.retryBtn}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return (
+      <FlatList
+        data={transactions}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => <TxnCard item={item} />}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={C.blush}
+          />
+        }
+        onEndReached={onEndReached}
+        onEndReachedThreshold={0.3}
+        ListFooterComponent={
+          loadingMore
+            ? <ActivityIndicator color={C.blush} style={{ marginVertical: 16 }} />
+            : null
+        }
+        ListEmptyComponent={
+          <View style={styles.empty}>
+            <Text style={styles.emptyIcon}>💸</Text>
+            <Text style={styles.emptyText}>No transactions found</Text>
+            <Text style={styles.emptySub}>Add one or adjust your filters</Text>
+          </View>
+        }
+      />
+    );
   };
 
   return (
@@ -527,41 +519,8 @@ export default function Transactions() {
         ))}
       </View>
 
-      {/* List */}
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={C.blush} size="large" />
-        </View>
-      ) : (
-        <FlatList
-          data={transactions}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <TxnCard item={item} />}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={C.blush}
-            />
-          }
-          onEndReached={onEndReached}
-          onEndReachedThreshold={0.3}
-          ListFooterComponent={
-            loadingMore
-              ? <ActivityIndicator color={C.blush} style={{ marginVertical: 16 }} />
-              : null
-          }
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyIcon}>💸</Text>
-              <Text style={styles.emptyText}>No transactions found</Text>
-              <Text style={styles.emptySub}>Add one or adjust your filters</Text>
-            </View>
-          }
-        />
-      )}
+      {/* Content */}
+      {renderContent()}
 
       {/* Add Modal */}
       <AddTransactionModal
@@ -627,8 +586,8 @@ const styles = StyleSheet.create({
     backgroundColor: C.dusk,
     borderColor: C.blush,
   },
-  filterChipText:      { color: C.dusk, fontSize: 13, fontWeight: "600" },
-  filterChipTextActive:{ color: C.petal },
+  filterChipText:       { color: C.dusk, fontSize: 13, fontWeight: "600" },
+  filterChipTextActive: { color: C.petal },
 
   listContent: { paddingHorizontal: 16, paddingBottom: 120 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
@@ -637,6 +596,13 @@ const styles = StyleSheet.create({
   emptyIcon: { fontSize: 40, marginBottom: 12 },
   emptyText: { color: C.blush, fontSize: 16, fontWeight: "600", marginBottom: 4 },
   emptySub:  { color: C.dusk, fontSize: 13 },
+
+  retryBtn: {
+    marginTop: 20, paddingHorizontal: 28, paddingVertical: 10,
+    borderRadius: 20, borderWidth: 1, borderColor: C.blush,
+    backgroundColor: "rgba(223,182,178,0.1)",
+  },
+  retryText: { color: C.blush, fontWeight: "600", fontSize: 14 },
 });
 
 // ── Card styles ───────────────────────────────────────────────
@@ -723,8 +689,8 @@ const modal = StyleSheet.create({
   },
   typeBtnDebit:  { backgroundColor: "rgba(224,92,107,0.2)", borderColor: C.red },
   typeBtnCredit: { backgroundColor: "rgba(76,175,125,0.2)", borderColor: C.green },
-  typeBtnText:      { color: C.dusk, fontWeight: "600", fontSize: 14 },
-  typeBtnTextActive:{ color: C.petal },
+  typeBtnText:       { color: C.dusk, fontWeight: "600", fontSize: 14 },
+  typeBtnTextActive: { color: C.petal },
 
   label: { color: C.blush, fontSize: 12.5, marginBottom: 7, marginTop: 14, opacity: 0.85 },
 
