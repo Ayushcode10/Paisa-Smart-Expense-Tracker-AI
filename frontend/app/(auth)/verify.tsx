@@ -113,7 +113,6 @@ export default function VerifyScreen() {
         otp: code,
         ...(isNewUser && name.trim() ? { name: name.trim() } : {}),
       });
-      const { tokenStore } = await import('../../lib/tokenStore');
       await SecureStore.setItemAsync('auth_token', res.token);
       if (res.isNewUser) {
         setIsNewUser(true);
