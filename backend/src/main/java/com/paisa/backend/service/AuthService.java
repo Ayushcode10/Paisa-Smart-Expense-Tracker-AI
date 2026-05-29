@@ -25,7 +25,7 @@ public class AuthService {
     private final OtpRepository otpRepository;
     private final UserRepository userRepository;
     private final JwtService jwtService;
-    private final SmsService smsService;
+    private final OtpSmsService smsService;
 
     @Value("${app.otp.expiry-minutes}")
     private int otpExpiryMinutes;

@@ -14,5 +14,5 @@ import org.springframework.data.mongodb.repository.config.EnableMongoRepositorie
 )
 @EntityScan(basePackages = "com.paisa.backend.entity")
 public class DatabaseConfig {
-    //spring handles the rest automatically using the application.yml
+    //spring handles the rest automatically using the application.yaml
 }

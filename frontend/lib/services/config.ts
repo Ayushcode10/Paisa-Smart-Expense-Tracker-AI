@@ -1,1 +1,1 @@
-// export const BASE_URL =process.env.EXPO_PUBLIC_API_URL!;
+export const BASE_URL ="http://192.168.1.8:8080";

@@ -34,6 +34,9 @@ public class Transaction {
     private String source;              // "UPI", "CARD", "CASH", "WALLET", "NET_BANKING"
     private String paymentMethod;       // "GPay", "PhonePe", "HDFC Credit Card"
 
+    private String bankName;       // "HDFC", "SBI", "ICICI"
+    private String accountLast4;   // "XX4521"
+
     private String note;                // user's own note on the transaction
     private List<String> tags;          // ["work", "reimbursable"] — user defined
 

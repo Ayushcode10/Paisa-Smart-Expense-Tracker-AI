@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-public class SmsService {
+public class OtpSmsService {
 
     @Value("${app.twilio.account-sid}")
     private String accountSid;

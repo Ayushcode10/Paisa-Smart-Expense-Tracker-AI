@@ -1,11 +1,37 @@
 package com.paisa.backend.service.sms.parser;
 
 import java.math.BigDecimal;
+import java.text.Normalizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public abstract class BaseParser implements BankParser {
+public abstract class BaseBankParser implements BankParser {
 
+
+    protected String normalizeSms(String sms) {
+
+        if (sms == null) {
+            return "";
+        }
+
+        // Normalize unicode characters
+        String normalized =
+                Normalizer.normalize(
+                        sms,
+                        Normalizer.Form.NFKD
+                );
+
+        // Remove fancy unicode remnants
+        normalized = normalized
+                .replaceAll("[^\\x00-\\x7F]", "");
+
+        // Collapse spaces
+        normalized = normalized
+                .replaceAll("\\s+", " ")
+                .trim();
+
+        return normalized;
+    }
     protected String cleanMerchant(String raw) {
 
         if (raw == null || raw.isBlank()) {
