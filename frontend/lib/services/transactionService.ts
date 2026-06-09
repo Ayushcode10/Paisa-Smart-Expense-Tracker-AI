@@ -1,9 +1,8 @@
-//transactionService.ts
+// transactionService.ts
 
-import * as SecureStore from "expo-secure-store";
-import { BASE_URL } from "./config";
+import { apiClient } from '../apiClient';
 
-// ── Types (from OpenAPI spec) ─────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────
 
 export type TransactionType = "DEBIT" | "CREDIT";
 export type TransactionSource =
@@ -12,34 +11,30 @@ export type TransactionSource =
   | "ATM" | "EMI" | "UNKNOWN";
 
 export interface TransactionResponse {
-  pagination: {
   id: string;
   amount: number;
   merchant: string;
   category: string;
-  categoryConfidence: number; 
+  categoryConfidence?: number;
   type: TransactionType;
   source: TransactionSource;
   paymentMethod: string;
   note: string;
   tags: string[];
-  bankName: string;
-  accountLast4: string;
+  bankName?: string;
+  accountLast4?: string;
   smsImported: boolean;
-  transactionDate: string;      // ISO date-time
+  transactionDate: string;
   createdAt: string;
-}
 }
 
 export interface TransactionListResponse {
   content: TransactionResponse[];
-  pagination: {
-    page: number;
-    size: number;
-    totalElements: number;
-    totalPages: number;
-    last: boolean;
-  };
+  last: boolean;
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
 }
 
 export interface TransactionSummaryResponse {
@@ -74,81 +69,30 @@ export interface GetTransactionsParams {
   search?: string;
 }
 
-// ── Helpers ───────────────────────────────────────────────────
-
-async function getToken(): Promise<string> {
-  const token = await SecureStore.getItemAsync("auth_token");
-  if (!token) throw new Error("Not authenticated");
-  return token;
-}
-
-async function apiFetch<T>(
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const token = await getToken();
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...options.headers,
-    },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body?.error ?? `HTTP ${res.status}`);
-  }
-  return res.json();
-}
-
-function buildQuery(params: Record<string, any>): string {
-  const q = Object.entries(params)
-    .filter(([, v]) => v !== undefined && v !== null && v !== "")
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-    .join("&");
-  return q ? `?${q}` : "";
-}
-
-// ── API calls ─────────────────────────────────────────────────
+// ── Service ───────────────────────────────────────────────────
 
 export const transactionService = {
-  /** GET /api/transactions  — paginated + filtered list */
   getAll(params: GetTransactionsParams = {}): Promise<TransactionListResponse> {
-    return apiFetch(`/api/transactions${buildQuery(params)}`);
+    return apiClient.get('/api/transactions', { params }).then(r => r.data);
   },
 
-  /** GET /api/transactions/summary */
   getSummary(from: string, to: string): Promise<TransactionSummaryResponse> {
-    return apiFetch(`/api/transactions/summary${buildQuery({ from, to })}`);
+    return apiClient.get('/api/transactions/summary', { params: { from, to } }).then(r => r.data);
   },
 
-  /** GET /api/transactions/:id */
   getById(id: string): Promise<TransactionResponse> {
-    return apiFetch(`/api/transactions/${id}`);
+    return apiClient.get(`/api/transactions/${id}`).then(r => r.data);
   },
 
-  /** POST /api/transactions */
   create(data: CreateTransactionRequest): Promise<TransactionResponse> {
-    return apiFetch("/api/transactions", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
+    return apiClient.post('/api/transactions', data).then(r => r.data);
   },
 
-  /** PUT /api/transactions/:id */
-  update(
-    id: string,
-    data: Partial<CreateTransactionRequest>
-  ): Promise<TransactionResponse> {
-    return apiFetch(`/api/transactions/${id}`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-    });
+  update(id: string, data: Partial<CreateTransactionRequest>): Promise<TransactionResponse> {
+    return apiClient.put(`/api/transactions/${id}`, data).then(r => r.data);
   },
 
-  /** DELETE /api/transactions/:id */
   delete(id: string): Promise<void> {
-    return apiFetch(`/api/transactions/${id}`, { method: "DELETE" });
+    return apiClient.delete(`/api/transactions/${id}`).then(r => r.data);
   },
 };

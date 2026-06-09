@@ -1,4 +1,5 @@
 //transactions.tsx
+
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
@@ -114,6 +115,7 @@ function AddTransactionModal({
       onAdded();
       onClose();
     } catch (e: any) {
+      console.log("CREATE ERROR:", e?.message);
       setError(e?.message ?? "Failed to add. Try again.");
     } finally {
       setLoading(false);
@@ -256,7 +258,7 @@ function AddTransactionModal({
 function TxnCard({ item }: { item: TransactionResponse }) {
   const isDebit = item.type === "DEBIT";
   const icon    = CATEGORY_ICONS[item.category] ?? "•";
-  const lowConf = item.categoryConfidence < 0.6;
+  const lowConf = (item.categoryConfidence ?? 1) < 0.6;
 
   return (
     <View style={card.root}>
@@ -275,7 +277,7 @@ function TxnCard({ item }: { item: TransactionResponse }) {
             {lowConf ? "⚠️ " : ""}{item.category}
           </Text>
           <Text style={card.dot}>·</Text>
-          <Text style={card.source}>{SOURCE_ICONS[item.source]} {item.source}</Text>
+          <Text style={card.source}>{SOURCE_ICONS[item.source] ?? "•"} {item.source}</Text>
           <Text style={card.dot}>·</Text>
           <Text style={card.date}>{formatDate(item.transactionDate)}</Text>
           <Text style={card.time}>, {formatTime(item.transactionDate)}</Text>
@@ -356,10 +358,12 @@ export default function Transactions() {
         transactionService.getAll(buildParams(pg)),
         reset ? transactionService.getSummary(monthFrom(), monthTo()) : Promise.resolve(summary),
       ]);
+
       setTransactions(reset ? listRes.content : (prev) => [...prev, ...listRes.content]);
       if (reset && sumRes) setSummary(sumRes as TransactionSummaryResponse);
-      setHasMore(!listRes.pagination.last);
-      setPage(pg + 1);
+      // Spring Page uses "last" and "number" at top level (not nested under "pagination")
+      setHasMore(!listRes.last);
+      setPage(listRes.number + 1);
     } catch (e: any) {
       setError(e?.message ?? "Failed to load transactions");
     } finally {
@@ -395,7 +399,6 @@ export default function Transactions() {
     if (hasMore && !loadingMore) { setLoadingMore(true); fetchData(); }
   };
 
-  // ── Render content area based on state ───────────────────
   const renderContent = () => {
     if (loading) {
       return (
