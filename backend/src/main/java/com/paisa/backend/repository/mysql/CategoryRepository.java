@@ -13,8 +13,13 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
 
     // Fetch system defaults (userId = null) + user's custom ones
     // This single query powers the GET /api/categories endpoint
-    @Query("SELECT c FROM Category WHERE c.userId IS NULL OR c.userId = :userId")
-    List<Category> findAllForUser(Long userId);
+    @Query("""
+    SELECT c
+    FROM Category c
+    WHERE c.userId IS NULL
+       OR c.userId = :userId
+""")
+    List<Category> findAllForUser(@org.springframework.data.repository.query.Param("userId") Long userId);
 
 
     //used when deleting - ensure that it belongs to the user and is not default
